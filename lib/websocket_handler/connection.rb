@@ -19,6 +19,8 @@ module WebsocketHandler
         response = handshake.accept_response
         response.render(@socket)
         listen(@socket)
+      else
+        @socket << "HTTP/1.1 400 #{handshake.errors.first}"
       end
     
     end
@@ -30,7 +32,7 @@ module WebsocketHandler
         @callback[message]
       end
     rescue 
-      puts $!
+      raise HandlerError, "#{$!}"
     end
 
 

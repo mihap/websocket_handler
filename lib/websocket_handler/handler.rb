@@ -21,6 +21,9 @@ module WebsocketHandler
       connection = Connection.new(socket) do |message|
         @callback[message]
       end
+    rescue HandlerError
+      #TODO log this
+      terminate
     end
 
 
