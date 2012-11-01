@@ -13,7 +13,7 @@ Gem::Specification.new do |gem|
   gem.name          = "websocket_handler"
 
   gem.require_paths = ["lib"]
-  gem.version       = Websocket_handler::VERSION
+  gem.version       = WebsocketHandler::VERSION
 
   gem.add_runtime_dependency 'http'
 
