@@ -7,5 +7,10 @@ require "websocket_handler/connection.rb"
 require "websocket_handler/version.rb"
 
 module WebsocketHandler
-  class HandlerError < StandardError; end
+  class HandlerError < StandardError;
+    attr_reader :connection 
+    def initialize(connection)
+      @connection = connection
+    end
+  end
 end
