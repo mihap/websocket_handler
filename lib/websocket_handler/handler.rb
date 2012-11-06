@@ -11,38 +11,35 @@ module WebsocketHandler
       end
 
 
-    def initialize(addr,port,&callback)
-      @addr, @port = addr, port
+    def initialize(addr, port, logger_name=nil, &callback)
+      @addr, @port, @logger = addr, port, logger_name
       @callback = callback
+      @logger = Logger.new(logger_name) if logger_name
       @tcp_server = TCPServer.new(@addr,@port)
       run!
     end
 
     def run
-      # puts " in run actor is #{Actor.current}"
       loop { on_connection! @tcp_server.accept }
     end
 
     def on_connection(socket)
-      connection = Connection.new(socket) do |sender,message|
+      conn = Connection.new(socket) do |sender,message|
         @callback[sender,message]
       end
 
-      case connection.state
+      case conn.state
       when :attached
-        @@all[connection.object_id] = connection
-        connection.listen
+        @@all[conn.object_id] = conn
+        @logger.info "New Connection from #{conn.remote_addr}:#{conn.remote_port}" if @logger
+        conn.listen
       else
-        #TODO Log failed attempt
-        puts connection.error
+        @logger.error "#{conn.remote_addr}:#{conn.remote_port}: #{conn.reason}, conn state: #{conn.state}" if @logger
       end
 
     rescue HandlerError => e
-      #TODO log this
-      puts $!.inspect
-
-      e.connection.detach
-      @@all.delete e.connection.object_id
+      @logger.error "#{conn.remote_addr}:#{conn.remote_port}: #{conn.reason}" if @logger
+      @@all.delete conn.object_id
     end
 
   end

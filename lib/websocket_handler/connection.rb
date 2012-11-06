@@ -34,13 +34,13 @@ end
 module WebsocketHandler
 
   class Connection
-    attr_reader :state
+    attr_reader :state, :reason
     BUFFER_SIZE = 4096
 
     def initialize(socket,&callback)
       @socket = socket
       @callback = callback
-      @error = ""
+      @reason = ""
 
       @http_parser = HttpParser.new
       @websocket_parser = ::WebSocket::Parser.new
@@ -49,13 +49,17 @@ module WebsocketHandler
         @socket << ::WebSocket::Message.pong.to_data
       end
 
-      @websocket_parser.on_close do |status, reason|
+      @websocket_parser.on_close do |s, r|
         @socket << ::WebSocket::Message.close.to_data
-        raise HandlerError.new(self), "#{status} : #{reason}"
+        @reason = "#{s} : #{r}"
+        raise HandlerError
+        # detach
       end 
 
       read_headers
     end
+    
+
 
     def read_headers
       @state = :headers
@@ -64,9 +68,9 @@ module WebsocketHandler
           @http_parser << @socket.readpartial(BUFFER_SIZE)
         end
       rescue
-        @error = $!
+        @reason = $!.message
       end
-      handshake if @error.empty?
+      handshake if @reason.empty?
     end
 
     def handshake
@@ -77,7 +81,7 @@ module WebsocketHandler
         response.render(@socket)
         @state = :attached
       else
-        @error = handshake.errors.first
+        @reason = handshake.errors.first
         @socket << "HTTP/1.1 400 #{handshake.errors.first}"
       end
     end
@@ -88,20 +92,25 @@ module WebsocketHandler
         @callback[self,message]
       end
     rescue
-      raise HandlerError.new(self), $!
+      if @state == :attached
+        @reason = $!.message
+        raise HandlerError
+        detach 
+      end
     end
 
     def write(msg)
       @socket << ::WebSocket::Message.new(msg).to_data
       msg
     rescue 
-      raise HandlerError.new(self), $!
+      # @reason = $!.message
+      raise HandlerError
     end
     alias_method :<<, :write
 
     def detach
-      @socket.close 
       @state = :closed
+      @socket.close 
     end
 
     def remote_addr
@@ -115,15 +124,6 @@ module WebsocketHandler
     def remote_host
       @socket.peeraddr(true)[2]
     end
-
-    def error=(err)
-      @error = err
-    end
-
-    def error
-      "error : #{@error}"
-    end
-
 
   end
 

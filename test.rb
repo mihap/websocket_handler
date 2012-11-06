@@ -11,7 +11,7 @@ def handle_message(sender,msg)
   end
 end
 
-WebsocketHandler::Handler.new "127.0.0.1", "1234", &method(:handle_message)
+WebsocketHandler::Handler.new "127.0.0.1", "1234",STDERR, &method(:handle_message)
 
 
 
