@@ -1,36 +1,4 @@
 
-# small fix
-module WebSocket
-  class Parser
-    def process_message!
-      case opcode
-      when :text
-        msg = @current_message.force_encoding("UTF-8")
-        raise ParserError.new('Payload data is not valid UTF-8') unless msg.valid_encoding?
-
-        @on_message.call(msg) if @on_message
-      when :binary
-        @on_message.call(@current_message) if @on_message
-      when :ping
-        @on_ping.call if @on_ping
-      when :pong
-        @on_pong.call if @on_ping
-      when :close
-        status_code, message = @current_message.unpack('S>a*')
-        status = STATUS_CODES[status_code]
-        @on_close.call(status, message) if @on_close
-      end
-
-      # Reset message
-      @opcode = nil
-      @current_message = nil
-    end
-  end
-end
-
-
-
-
 module WebsocketHandler
 
   class Connection
@@ -67,6 +35,7 @@ module WebsocketHandler
         until @http_parser.headers? 
           @http_parser << @socket.readpartial(BUFFER_SIZE)
         end
+        puts @http_parser.headers
       rescue
         @reason = $!.message
       end
@@ -76,6 +45,7 @@ module WebsocketHandler
     def handshake
       @state = :handshake
       handshake = ::WebSocket::ClientHandshake.new(:get, @http_parser.url, @http_parser.headers)
+      puts handshake.class
       if handshake.valid?
         response = handshake.accept_response
         response.render(@socket)
