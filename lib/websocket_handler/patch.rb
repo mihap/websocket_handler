@@ -1,5 +1,5 @@
 
-# small fix : byte order
+# byte order fixed
 module WebSocket
   class Parser
     def process_message!
@@ -27,6 +27,7 @@ module WebSocket
     end
   end
 
+  #check for proper header added
   class ClientHandshake < Http::Request
     def valid?
       if ! headers['Upgrade'] || headers['Upgrade'].downcase != 'websocket'

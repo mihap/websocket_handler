@@ -3,50 +3,52 @@ module WebsocketHandler
 
   class Handler
     include Celluloid::IO
-    @@all = {}
 
-
-      def self.connections
-        @@all
-      end
-
-
-    def initialize(addr, port, logger_name=nil, callback)
-      @addr, @port, @logger = addr, port, logger_name
-      @callback = callback
-      @logger = Logger.new(logger_name) if logger_name
+    def initialize(&config)
+      config.call(self)
       @tcp_server = TCPServer.new(@addr,@port)
-      puts "handler thread : #{Thread.current}"
       run!
      end
+
+     def logger=(logger)
+        @logger = Logger.new(logger) 
+     end
+
+     def addr=(addr)
+      @addr = addr
+     end
+
+     def port=(port)
+      @port = port
+    end
+
+    def manager=(manager)
+      @manager = manager
+    end
 
     def run
       loop { on_connection! @tcp_server.accept }
     end
 
     def on_connection(socket)
-      puts "on connection event #{Thread.current}"
-      conn = Connection.new(socket) do |sender,message|
-        @callback.handle_message(sender,message)
-      end
+      conn = Connection.new(socket) do |message|
+        @manager.on_message(conn,message)
+     end
 
       case conn.state
-      when :attached
-
-        @@all[conn.object_id] = conn
-        @logger.info "New Connection from #{conn.remote_addr}:#{conn.remote_port}" if @logger
-        @callback.on_open(conn.object_id)
+      when :websocket
+        @manager.on_open(conn)
+        @logger.info "New Connection: #{conn}" if @logger
         conn.listen
       else
-        @logger.error "#{conn.remote_addr}:#{conn.remote_port}: #{conn.reason}, conn state: #{conn.state}" if @logger
-        conn.detach
+        @logger.error "Failed: #{conn}: #{conn.error}, conn state: #{conn.state}" if @logger
       end
 
-    rescue HandlerError => e
-      @callback.on_close(conn.object_id)
-      @logger.error "#{conn.remote_addr}:#{conn.remote_port}: #{conn.reason}" if @logger
-      @@all.delete conn.object_id
-    end
-
+    rescue HandlerError
+      @manager.on_close(conn)
+      @logger.error "#{conn}: #{conn.error}" if @logger
+    ensure 
+      conn.close
+     end
   end
 end
